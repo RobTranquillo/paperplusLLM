@@ -50,19 +50,24 @@ Volltext und ergänzte Metadaten zurück in Paperless schreiben („Anreicherung
   Gemma 3 27B, Mistral Small 3.x, spezialisierte OCR-Modelle (olmOCR, Nanonets-OCR, granite-docling).
 - Bild-LLMs neigen dazu, Text zu „glätten“ oder Zahlen zu erfinden – für den Vergleich relevant.
 
+## Aktueller Stand
+
+`paperplus.py` (Python, nur Standardbibliothek, CLI) ist die erste Ausbaustufe:
+Verbindungsprüfung → Original + Paperless-`content` ablegen → LM Studio starten und Modell laden
+→ Bild(er) an das Modell → Antwort als `<modell>.html` neben das Dokument → Bewertung.
+Ausgabe: `ausgabe/<doc-id>_<titel>/original.<ext>`, `paperless_content.txt`, `<modell>.html`.
+- **Ausgabeformat ist HTML** (Wunsch des Users, Struktur bleibt erhalten). Vorbild ist das native
+  Format von chandra-ocr-2: `<div data-bbox data-label="..."><p>…</p></div>`.
+- **Referenzen:** `referenz/<doc-id>_<titel>/original.<ext>` + `ground_truth.html` (vom User
+  korrigiert, nicht im Git wegen persönlicher Daten).
+- **Bewertung:** `evaluate.py` – Zeichen (1−CER), Wörter (1−WER), Struktur (Tag-Folge);
+  Tesseract-Text als Basislinie. Läuft automatisch am Ende von `paperplus.py`.
+- Getestet: chandra-ocr-2 (GGUF, LM Studio) – liefert Ausgabe in `reasoning_content` statt
+  `content` (abgefangen), ca. 1 min/Seite, Dok. 220: 98,9 % Zeichen / 97,7 % Wörter.
+Auswahl per IDs oder `--latest N`. Konfiguration über `.env` (siehe `.env.example`).
+
 ## Offene Entscheidungen (mit dem User klären)
 
-- Programmiersprache und Form (Skript/CLI vs. App).
-- Welche LLMs konkret in der ersten Runde verglichen werden.
-- Wie Dokumente ausgewählt werden („einzelne aktuelle“: per ID, die letzten N, per Tag?).
-- Wohin lokal gespeichert wird und wie Dateien benannt werden (Vorschlag:
-  `<ausgabe>/<doc-id>_<titel>/original.<ext>`, `tesseract.txt`, `<llm-name>.md`).
-- Ausgabeformat pro LLM (reiner Text, Markdown, JSON mit Feldern wie Datum/Betrag?).
-- Ob und wie Laufzeit/Kosten pro Modell mitprotokolliert werden.
-- Mehrseitige PDFs: alle Seiten oder nur die erste(n)?
-
-## Altbestand im Ordner
-
-`paperless_claude.py` und `compose.yaml` sind ein früher, ungefragt erstellter Prototyp
-(Server-Variante mit `claude -p` im Container auf TrueNAS, schreibt in Paperless zurück).
-Sie gehören **nicht** zum aktuellen Ziel und dienen höchstens als Referenz für API-Aufrufe.
+- Welche LLMs konkret verglichen werden; Claude (`claude -p`) als weiteres Backend.
+- Mehrere Modelle in einem Lauf nacheinander (laden/entladen) statt eines pro Aufruf.
+- Ob Laufzeit/Tokens pro Modell mitprotokolliert werden (derzeit nur Konsolenausgabe).
