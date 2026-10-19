@@ -9,35 +9,10 @@ import pytest
 
 import llm
 import paperplus
+from fake_lmstudio import HTML, FakeLM
 from fake_paperless import TOKEN
 
-HTML = '<div data-label="Text"><p>Hallo Welt<br/>Zweite Zeile</p></div>'
 TEXT = "Hallo Welt\nZweite Zeile"
-
-
-class FakeLM:
-    """Ersatz für llm.LMStudio: kein lms, kein Modell, keine macOS-Werkzeuge."""
-    instances = []
-    responder = None  # callable(original_path) -> html; Standard: HTML
-
-    def __init__(self, base_url=None):
-        self.events, self.transcribed = [], []
-        FakeLM.instances.append(self)
-
-    def start_server(self):
-        self.events.append("start_server")
-
-    def load_model(self, model_key, context_length):
-        self.events.append(("load_model", model_key, context_length))
-        return model_key
-
-    def transcribe_file(self, model_id, original, prompt=None, max_size=2000, max_pages=5, timeout=900):
-        self.transcribed.append(original)
-        html = FakeLM.responder(original) if FakeLM.responder else HTML
-        return html, {"completion_tokens": 42}, 1.0, 1
-
-    def unload(self):
-        self.events.append("unload")
 
 
 @pytest.fixture

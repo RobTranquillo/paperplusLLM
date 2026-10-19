@@ -142,3 +142,32 @@ class FakeLmServer:
         self.response = {"choices": [{"message": message, "finish_reason": finish}]}
         if not omit_usage:
             self.response["usage"] = usage if usage is not None else {"completion_tokens": 7}
+
+
+HTML = '<div data-label="Text"><p>Hallo Welt<br/>Zweite Zeile</p></div>'
+
+
+class FakeLM:
+    """Ersatz für llm.LMStudio: kein lms, kein Modell, keine macOS-Werkzeuge."""
+    instances = []
+    responder = None  # callable(original_path) -> html; Standard: HTML
+
+    def __init__(self, base_url=None):
+        self.events, self.transcribed, self.options = [], [], []
+        FakeLM.instances.append(self)
+
+    def start_server(self):
+        self.events.append("start_server")
+
+    def load_model(self, model_key, context_length):
+        self.events.append(("load_model", model_key, context_length))
+        return model_key
+
+    def transcribe_file(self, model_id, original, prompt=None, max_size=2000, max_pages=5, timeout=900):
+        self.transcribed.append(original)
+        self.options.append((max_size, max_pages, timeout))
+        html = FakeLM.responder(original) if FakeLM.responder else HTML
+        return html, {"completion_tokens": 42}, 1.0, 1
+
+    def unload(self):
+        self.events.append("unload")

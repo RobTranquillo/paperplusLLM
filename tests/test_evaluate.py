@@ -8,6 +8,7 @@ import pytest
 import evaluate
 import llm
 from conftest import GOLDEN, reference_dirs
+from fake_lmstudio import HTML, FakeLM
 
 
 def naive_levenshtein(a, b):
@@ -218,6 +219,116 @@ def test_main_ohne_modell_bricht_ab(projekt, monkeypatch, capsys):
     with pytest.raises(SystemExit):
         evaluate.main()
     assert "Kein Modell" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------- run_model (mit Fake-LM)
+
+@pytest.fixture
+def mit_modell(projekt, monkeypatch):
+    """Projekt mit Originalbild und Fake-LM-Studio; Aufruf: lauf('--model', 'm', …)."""
+    ref, bench = projekt
+    (ref / "original.jpg").write_bytes(b"BILD")
+    FakeLM.instances, FakeLM.responder = [], None
+    monkeypatch.setattr(llm, "LMStudio", FakeLM)
+
+    def lauf(*args):
+        monkeypatch.setattr(sys, "argv", ["evaluate.py", *args])
+        evaluate.main()
+
+    lauf.ref, lauf.bench = ref, bench
+    return lauf
+
+
+def lm():
+    (instance,) = FakeLM.instances
+    return instance
+
+
+def test_run_model_speichert_antwort_und_bewertet(mit_modell, capsys):
+    mit_modell("--model", "qwen/vl-8b")
+    assert (mit_modell.bench / "qwen__vl-8b.html").read_text(encoding="utf-8") == HTML + "\n"
+    assert (evaluate.BENCH_DIR / "bewertung.csv").exists()
+    out = capsys.readouterr().out
+    assert "7_test" in out and "qwen__vl-8b" in out
+    assert lm().transcribed == [mit_modell.ref / "original.jpg"]
+
+
+def test_run_model_laedt_modell_und_entlaedt_es(mit_modell):
+    mit_modell("--model", "m", "--context-length", "4096")
+    assert lm().events == ["start_server", ("load_model", "m", 4096), "unload"]
+
+
+def test_run_model_keep_loaded(mit_modell):
+    mit_modell("--model", "m", "--keep-loaded")
+    assert "unload" not in lm().events
+
+
+def test_run_model_reicht_optionen_weiter(mit_modell):
+    mit_modell("--model", "m", "--max-size", "1000", "--max-pages", "2", "--timeout", "60")
+    assert lm().options == [(1000, 2, 60)]
+
+
+def test_run_model_modell_aus_umgebung(mit_modell, monkeypatch):
+    monkeypatch.setenv("LMSTUDIO_MODEL", "aus-env")
+    mit_modell()
+    assert (mit_modell.bench / "aus-env.html").exists()
+
+
+def test_run_model_referenz_ohne_original_wird_uebersprungen(mit_modell, capsys):
+    (mit_modell.ref / "original.jpg").unlink()
+    other = evaluate.REF_DIR / "8_mit"
+    other.mkdir()
+    (other / "ground_truth.html").write_text("<p>x</p>", encoding="utf-8")
+    (other / "original.png").write_bytes(b"BILD")
+    mit_modell("--model", "m")
+    assert "7_test: keine unterstützte original" in capsys.readouterr().err
+    assert [p.name for p in lm().transcribed] == ["original.png"]
+    assert (evaluate.BENCH_DIR / "8_mit" / "m.html").exists()
+    assert not (evaluate.BENCH_DIR / "7_test" / "m.html").exists()
+
+
+def test_run_model_fehler_bei_einer_referenz_stoppt_die_anderen_nicht(mit_modell, capsys):
+    other = evaluate.REF_DIR / "8_andere"
+    other.mkdir()
+    (other / "ground_truth.html").write_text("<p>x</p>", encoding="utf-8")
+    (other / "original.jpg").write_bytes(b"BILD")
+
+    def responder(original):
+        if "7_test" in str(original):
+            raise RuntimeError("Modell abgestürzt")
+        return HTML
+    FakeLM.responder = responder
+
+    mit_modell("--model", "m")
+    assert "7_test: Modell abgestürzt" in capsys.readouterr().err
+    assert (evaluate.BENCH_DIR / "8_andere" / "m.html").exists()
+    assert not (evaluate.BENCH_DIR / "7_test" / "m.html").exists()
+    assert "unload" in lm().events
+
+
+def test_run_model_entlaedt_auch_bei_abbruch(mit_modell):
+    def responder(original):
+        raise KeyboardInterrupt
+    FakeLM.responder = responder
+    with pytest.raises(KeyboardInterrupt):
+        mit_modell("--model", "m")
+    assert "unload" in lm().events
+
+
+def test_run_model_nur_gewaehlte_ids(mit_modell):
+    other = evaluate.REF_DIR / "8_andere"
+    other.mkdir()
+    (other / "ground_truth.html").write_text("<p>x</p>", encoding="utf-8")
+    (other / "original.jpg").write_bytes(b"BILD")
+    mit_modell("--model", "m", "8")
+    assert [p.parent.name for p in lm().transcribed] == ["8_andere"]
+
+
+def test_score_only_startet_kein_lm_studio(mit_modell):
+    mit_modell.bench.mkdir(parents=True)
+    (mit_modell.bench / "m.html").write_text("<p>Hallo Welt</p>", encoding="utf-8")
+    mit_modell("--score-only")
+    assert FakeLM.instances == []
 
 
 # ---------------------------------------------------------------- Golden-Tests mit referenz/
