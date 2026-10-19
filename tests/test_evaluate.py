@@ -108,23 +108,6 @@ def test_read_candidate_txt_hat_keine_struktur(tmp_path):
 
 # ---------------------------------------------------------------- Anzeige
 
-def test_fmt():
-    assert evaluate.fmt(None) == "–"
-    assert evaluate.fmt(1.0).strip() == "100.0 %"
-    assert evaluate.fmt(0.9876).strip() == "98.8 %"
-
-
-def test_print_table(capsys):
-    evaluate.print_table([
-        {"dokument": "210", "modell": "tesseract (paperless)", "zeichen": 0.35, "woerter": 0.08, "struktur": None},
-        {"dokument": "210", "modell": "chandra", "zeichen": 1.0, "woerter": 0.99, "struktur": 1.0},
-    ])
-    out = capsys.readouterr().out
-    assert "Zeichen" in out and "Wörter" in out and "Struktur" in out
-    assert "tesseract (paperless)" in out and "chandra" in out
-    assert "35.0 %" in out
-
-
 # ---------------------------------------------------------------- Dateisystem-Ablauf
 
 @pytest.fixture

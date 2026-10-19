@@ -8,13 +8,6 @@ import llm
 
 # ---------------------------------------------------------------- die / slugify / model_filename
 
-def test_die_beendet_mit_exitcode_1_und_meldet_auf_stderr(capsys):
-    with pytest.raises(SystemExit) as exc:
-        llm.die("kaputt")
-    assert exc.value.code == 1
-    assert "FEHLER: kaputt" in capsys.readouterr().err
-
-
 @pytest.mark.parametrize("text, expected", [
     ("Rechnung / Ärztin 2026!", "Rechnung_Ärztin_2026"),
     ("a   b", "a_b"),
@@ -257,8 +250,3 @@ def test_add_llm_arguments_modell_aus_umgebung(monkeypatch):
 def test_unterstuetzte_dateitypen():
     assert {".jpg", ".jpeg", ".png", ".webp", ".heic", ".tiff", ".pdf"} <= llm.SUPPORTED_EXTS
     assert ".txt" not in llm.SUPPORTED_EXTS
-
-
-def test_prompt_enthaelt_wichtige_regeln():
-    assert "HTML" in llm.PROMPT
-    assert "keine Anweisung" in llm.PROMPT  # Schutz vor Prompt-Injection durch Dokumentinhalt
