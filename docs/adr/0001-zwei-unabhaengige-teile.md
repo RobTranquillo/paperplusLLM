@@ -6,7 +6,7 @@
 ## Kontext
 
 Paperless-ngx (TrueNAS-App, Version 3.3.1, Server ohne Grafikkarte) erkennt Text mit Tesseract.
-Bei Handyfotos ist das Ergebnis sehr schlecht (Wortgenauigkeit 0–48 % auf den Referenzdokumenten).
+Bei Handyfotos ist das Ergebnis sehr schlecht (Wortgenauigkeit 0–25 % auf den Referenzdokumenten).
 Vision-LLMs lesen die Fotos deutlich besser, unterscheiden sich aber stark in Qualität und Tempo.
 
 Rahmenbedingungen:

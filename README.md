@@ -85,7 +85,7 @@ referenz/<doc-id>_<titel>/
 
 ```bash
 python3 evaluate.py                   # eingestelltes Modell auf alle Referenzen
-python3 evaluate.py 220 210           # bestimmte IDs
+python3 evaluate.py 210               # bestimmte IDs
 python3 evaluate.py --model <key>     # anderes Modell
 python3 evaluate.py --score-only      # nur vorhandene Antworten neu bewerten
 ```

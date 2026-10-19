@@ -17,7 +17,7 @@ Metriken (Text aus dem HTML extrahiert, Leerraum normalisiert, Bilder ignoriert)
 Alle Werte in Prozent, 100 % = identisch mit der Referenz.
 
 Aufruf:  python3 evaluate.py                  # eingestelltes Modell auf alle Referenzen
-         python3 evaluate.py 220 210          # nur bestimmte Dokument-IDs
+         python3 evaluate.py 210              # nur bestimmte Dokument-IDs
          python3 evaluate.py --model <key>    # anderes Modell
          python3 evaluate.py --score-only     # nur vorhandene Ergebnisse neu bewerten
 """

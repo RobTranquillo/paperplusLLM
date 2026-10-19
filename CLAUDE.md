@@ -49,7 +49,7 @@ Das LLM bekommt nur das Bild, nicht den Tesseract-Text (bewusst entfernt, unbrau
 Optionen: IDs, `--latest N` (die N neuesten der ausstehenden), `--auto`, `--no-write`, `--force`, `--skip-llm`, `--keep-loaded`.
 **Zeitplan:** `install-launchd.sh` → LaunchAgent `local.paperplusllm`, alle 6 h + beim Anmelden,
 `run.sh --auto` (Netzteil-Check, still ohne Paperless, macOS-Mitteilung,
-Log `~/Library/Logs/paperplusLLM.log`). Zurückschreiben getestet (Dok. 220).
+Log `~/Library/Logs/paperplusLLM.log`). Zurückschreiben getestet.
 
 ### Stand `evaluate.py`
 
@@ -63,7 +63,7 @@ Ergebnis in Konsole und `benchmark/bewertung.csv`. `--score-only` bewertet nur v
 - **Ausgabeformat ist HTML** (Struktur bleibt erhalten). Vorbild ist das native Format von
   chandra-ocr-2: `<div data-bbox="…" data-label="Text|Section-Header|Table|Image|…"><p>…</p></div>`.
 - **Referenzen:** `referenz/<doc-id>_<titel>/original.<ext>` + `ground_truth.html` (vom User
-  korrigiert) + `tesseract.txt` (Basislinie). Derzeit 2 Dokumente: 210, 220.
+  korrigiert) + `tesseract.txt` (Basislinie). Derzeit 1 Dokument: 210.
   Werden eingecheckt.
 - `ausgabe/`, `benchmark/` und `.env` sind nicht im Git.
 
@@ -90,7 +90,7 @@ Ergebnis in Konsole und `benchmark/bewertung.csv`. `--score-only` bewertet nur v
     float, monetary, documentlink, select, **longtext**.
 - **LM Studio + chandra-ocr-2:** Antwort landet in `reasoning_content` statt `content` (abgefangen).
   Ca. 40–70 s pro Foto. Chandra ignoriert den Prompt und liefert immer sein HTML-Format.
-- Benchmark chandra-ocr-2 (Zeichen / Wörter): 210: 96,5/85,1 · 220: 98,9/97,7. Tesseract liegt bei 30–76 % / 0–48 %.
+- Benchmark chandra-ocr-2 (Zeichen / Wörter): 210: 96,5/85,1. Tesseract liegt bei 30–59 % / 0–25 %.
 - Bild-LLMs neigen dazu, Text zu „glätten“ oder Zahlen zu erfinden.
 
 ## Offene Entscheidungen (mit dem User klären)
