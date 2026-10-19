@@ -129,7 +129,6 @@ def main():
     ap.add_argument("ids", nargs="*", type=int, help="Paperless-Dokument-IDs (sonst die neuesten)")
     ap.add_argument("--latest", type=int, default=1, help="Anzahl neuester Dokumente, wenn keine IDs angegeben (Standard: 1)")
     ap.add_argument("--out", default=os.environ.get("PAPERPLUS_OUT", str(llm.PROJECT_DIR / "ausgabe")), help="lokaler Ausgabeordner")
-    ap.add_argument("--with-ocr", action="store_true", help="Paperless-Text als Hilfe mit an das Modell geben")
     ap.add_argument("--skip-llm", action="store_true", help="nur Dokumente aus Paperless laden, LM Studio/Modell überspringen")
     ap.add_argument("--no-write", action="store_true", help="Ergebnis nur lokal ablegen, Paperless nicht verändern")
     ap.add_argument("--force", action="store_true", help=f"auch Dokumente verarbeiten, die bereits den Tag „{MARKER}“ haben")
@@ -183,17 +182,11 @@ def main():
     errors = 0
     try:
         for folder, original, doc in docs:
-            prompt, suffix = llm.PROMPT, ""
-            # Frühere Fassungen von content hält Paperless selbst im Änderungsverlauf vor
-            ocr = doc.get("content") or ""
-            if args.with_ocr and ocr.strip() and MARKER not in ocr:
-                prompt += llm.PROMPT_OCR_HINT.format(ocr=ocr)
-                suffix = "_mit-ocr"
             try:
                 print(f"… #{doc['id']}: an {model_id}")
                 html, usage, seconds, n_images = lm.transcribe_file(
-                    model_id, original, prompt, args.max_size, args.max_pages, args.timeout)
-                target = folder / llm.model_filename(args.model, suffix)
+                    model_id, original, llm.PROMPT, args.max_size, args.max_pages, args.timeout)
+                target = folder / llm.model_filename(args.model)
                 target.write_text(html + "\n", encoding="utf-8")
                 print(f"✓ #{doc['id']}: {target.name} ({n_images} Bild(er), {seconds:.0f} s, "
                       f"{usage.get('completion_tokens', '?')} Tokens)")

@@ -43,7 +43,8 @@ Verbindungsprüfung → Original nach `ausgabe/<doc-id>_<titel>/` →
 LM Studio starten, Modell laden → Bild(er) an das Modell → `<modell>.html` lokal →
 **reiner Text + Zeile `llm-angereichert (<modell>)` ersetzt `content` in Paperless, Tag
 `llm-angereichert` wird gesetzt** (ADR 0002). Dokumente mit dem Tag werden übersprungen.
-Optionen: IDs oder `--latest N`, `--no-write`, `--force`, `--skip-llm`, `--with-ocr`, `--keep-loaded`.
+Optionen: IDs oder `--latest N`, `--no-write`, `--force`, `--skip-llm`, `--keep-loaded`.
+Das LLM bekommt nur das Bild, nicht den Tesseract-Text (bewusst entfernt, unbrauchbar).
 Keine lokale Sicherung von `content` – Paperless speichert Änderungen selbst im
 Änderungsverlauf. Start über `run.sh`. Zurückschreiben ist implementiert, aber noch nicht gegen Paperless getestet.
 
