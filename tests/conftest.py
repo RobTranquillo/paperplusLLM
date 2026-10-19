@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import llm
+from fake_lmstudio import FakeLms, FakeLmServer
 from fake_paperless import FakePaperless
 
 REFERENZ = Path(__file__).resolve().parent.parent / "referenz"
@@ -39,5 +40,20 @@ def no_real_dotenv(monkeypatch):
 def paperless():
     """Laufender Fake-Paperless-Server (localhost, zufälliger Port)."""
     server = FakePaperless().start()
+    yield server
+    server.stop()
+
+
+@pytest.fixture
+def fake_lms(tmp_path, monkeypatch):
+    """Ausführbares Fake-`lms` im PATH; Verhalten über fake_lms.configure(...)."""
+    monkeypatch.setattr(llm, "LMS_FALLBACK", tmp_path / "kein-lms-hier")
+    return FakeLms(tmp_path, monkeypatch)
+
+
+@pytest.fixture
+def lm_server():
+    """Fake-LM-Studio-HTTP-Server (OpenAI-kompatibel)."""
+    server = FakeLmServer().start()
     yield server
     server.stop()
