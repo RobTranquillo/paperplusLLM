@@ -60,7 +60,15 @@ def load_dotenv(path=PROJECT_DIR / ".env"):
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+        value = value.strip()
+        if value and value[0] in "\"'":
+            # in Anführungszeichen: bis zum schließenden Zeichen, ein Kommentar dahinter entfällt
+            end = value.find(value[0], 1)
+            value = value[1:end] if end != -1 else value[1:]
+        else:
+            # Kommentar am Zeilenende: " # …" (ein # direkt im Wert, z. B. in einem Token, bleibt)
+            value = re.split(r"\s+#", value, maxsplit=1)[0].strip()
+        os.environ.setdefault(key.strip(), value)
 
 
 def slugify(text, max_len=60):
@@ -187,9 +195,11 @@ def html_structure(html):
 
 
 def strip_code_fence(text):
-    """Entfernt einen umschließenden ```html … ```-Block, falls das Modell einen liefert."""
+    """Holt das HTML aus einem ```html … ```-Block, falls das Modell einen liefert – auch wenn
+    davor oder danach Erklärtext steht („Hier ist das HTML: …“). Die Fence-Zeilen müssen am
+    Zeilenanfang stehen, damit ``` mitten im Dokumenttext unberührt bleibt."""
     text = text.strip()
-    m = re.fullmatch(r"```[\w-]*\s*\n(.*?)\n?```", text, re.S)
+    m = re.search(r"^```[\w-]*[ \t]*\n(.*?)\n?^```[ \t]*$", text, re.S | re.M)
     return m.group(1).strip() if m else text
 
 

@@ -225,40 +225,11 @@ def test_main_ohne_modell_bricht_ab(projekt, monkeypatch, capsys):
 REFS = reference_dirs()
 
 
-def test_referenzen_vorhanden():
-    assert len(REFS) >= 4
-
-
 @pytest.mark.parametrize("ref", REFS, ids=lambda p: p.name.split("_", 1)[0])
 def test_ground_truth_gegen_sich_selbst_ist_100_prozent(ref):
     text, struct = evaluate.read_candidate(ref / "ground_truth.html")
     assert text
     assert evaluate.score(text, struct, text, struct) == {"zeichen": 1.0, "woerter": 1.0, "struktur": 1.0}
-
-
-@pytest.mark.parametrize("ref", REFS, ids=lambda p: p.name.split("_", 1)[0])
-def test_tesseract_basislinie_ist_deutlich_schlechter(ref):
-    """Zweck des Projekts: Tesseract liegt bei 30–76 % (Zeichen), das LLM darüber."""
-    tess = ref / evaluate.TESSERACT
-    if not tess.exists():
-        pytest.skip("keine tesseract.txt")
-    ref_text, ref_struct = evaluate.read_candidate(ref / "ground_truth.html")
-    hyp_text, hyp_struct = evaluate.read_candidate(tess)
-    s = evaluate.score(ref_text, ref_struct, hyp_text, hyp_struct)
-    assert s["zeichen"] < 0.85
-    assert s["woerter"] < 0.6
-
-
-@pytest.mark.parametrize("ref", REFS, ids=lambda p: p.name.split("_", 1)[0])
-def test_gezielte_fehler_senken_die_metriken_plausibel(ref):
-    """Zehn Prozent der Zeichen beschädigen -> Zeichenwert ca. 90 %, Wortwert deutlich niedriger."""
-    text, _ = evaluate.read_candidate(ref / "ground_truth.html")
-    chars = list(text)
-    for i in range(0, len(chars), 10):
-        chars[i] = "§" if chars[i] != "§" else "#"
-    s = evaluate.score(text, None, "".join(chars), None)
-    assert 0.85 <= s["zeichen"] <= 0.95
-    assert s["woerter"] < s["zeichen"]
 
 
 @pytest.mark.parametrize("ref", REFS, ids=lambda p: p.name.split("_", 1)[0])

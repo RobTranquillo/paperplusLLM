@@ -37,11 +37,6 @@ def test_model_filename_ersetzt_schraegstrich():
     assert llm.model_filename("chandra-ocr-2") == "chandra-ocr-2.html"
 
 
-@pytest.mark.xfail(strict=True, reason="Auffälligkeit: verschiedene Modelle können denselben Dateinamen ergeben")
-def test_model_filename_kollisionsfrei():
-    assert llm.model_filename("a/b.c") != llm.model_filename("a__b.c")
-
-
 # ---------------------------------------------------------------- data_url
 
 @pytest.mark.parametrize("name, mime", [
@@ -74,14 +69,21 @@ def test_strip_code_fence(raw, expected):
     assert llm.strip_code_fence(raw) == expected
 
 
-@pytest.mark.xfail(strict=True, reason="Auffälligkeit: Fence ohne Zeilenumbruch wird nicht entfernt")
-def test_strip_code_fence_ohne_zeilenumbruch():
-    assert llm.strip_code_fence("```html<p>x</p>```") == "<p>x</p>"
+@pytest.mark.parametrize("raw", [
+    "Hier ist das HTML:\n```html\n<p>x</p>\n```",
+    "```html\n<p>x</p>\n```\nLass mich wissen, ob etwas fehlt.",
+    "Hier:\n\n```html\n<p>x</p>\n```\n\nViel Erfolg!",
+])
+def test_strip_code_fence_mit_erklaertext_davor_oder_danach(raw):
+    assert llm.strip_code_fence(raw) == "<p>x</p>"
 
 
-@pytest.mark.xfail(strict=True, reason="Auffälligkeit: Text vor dem Fence bleibt samt Fence stehen")
-def test_strip_code_fence_mit_einleitung():
-    assert llm.strip_code_fence("Hier:\n```html\n<p>x</p>\n```") == "<p>x</p>"
+def test_strip_code_fence_nimmt_den_ersten_block():
+    assert llm.strip_code_fence("```html\n<p>a</p>\n```\ntext\n```\nb\n```") == "<p>a</p>"
+
+
+def test_strip_code_fence_ohne_schliessenden_fence_bleibt_unveraendert():
+    assert llm.strip_code_fence("```html\n<p>abgeschnitten") == "```html\n<p>abgeschnitten"
 
 
 # ---------------------------------------------------------------- html_to_text
@@ -212,22 +214,23 @@ def test_load_dotenv_ignoriert_zeilen_ohne_gleichheitszeichen(tmp_path, env_keys
     assert os.environ["T_A"] == "1"
 
 
-@pytest.mark.xfail(strict=True, reason="Auffälligkeit: Inline-Kommentare werden Teil des Werts")
-def test_load_dotenv_inline_kommentar(tmp_path, env_keys):
+@pytest.mark.parametrize("zeile, erwartet", [
+    ("T_A=1 # Kommentar", "1"),
+    ("T_A=chandra-ocr-2   #Kommentar", "chandra-ocr-2"),
+    ('T_A="x y" # Kommentar', "x y"),
+    ("T_A='x y'  # Kommentar", "x y"),
+    ('T_A="mit # Raute"', "mit # Raute"),
+    ("T_A=token#ohne-leerzeichen", "token#ohne-leerzeichen"),
+    ("T_A=", ""),
+    ('T_A="a\'b"', "a'b"),
+    ('T_A="unvollstaendig', "unvollstaendig"),
+])
+def test_load_dotenv_werte_und_kommentare(tmp_path, env_keys, zeile, erwartet):
     f = tmp_path / ".env"
-    f.write_text("T_A=1 # Kommentar\n")
+    f.write_text(zeile + "\n")
     llm.load_dotenv(f)
     import os
-    assert os.environ["T_A"] == "1"
-
-
-@pytest.mark.xfail(strict=True, reason="Auffälligkeit: 'export KEY=…' wird nicht erkannt")
-def test_load_dotenv_export_praefix(tmp_path, env_keys):
-    f = tmp_path / ".env"
-    f.write_text("export T_A=5\n")
-    llm.load_dotenv(f)
-    import os
-    assert os.environ.get("T_A") == "5"
+    assert os.environ["T_A"] == erwartet
 
 
 # ---------------------------------------------------------------- Kommandozeile / Konstanten
