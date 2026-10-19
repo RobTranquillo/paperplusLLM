@@ -100,3 +100,16 @@ Antworten in `benchmark/<doc-id>_<titel>/<modell>.html`, Werte in Konsole und
 | Struktur | Ähnlichkeit der HTML-Struktur (Überschriften, Absätze, Tabellen, Listen) |
 
 Verglichen wird der aus dem HTML extrahierte Text; Bildbeschreibungen (`alt`) zählen nicht mit.
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt   # pytest, pytest-cov (nur für die Tests)
+pytest                                # läuft ohne Paperless, LM Studio und macOS-Werkzeuge
+pytest --cov --cov-report=term-missing
+UPDATE_GOLDEN=1 pytest -k snapshot    # Textvergleichsdateien in tests/golden/ neu erzeugen (danach prüfen!)
+```
+
+Die GitHub Action `.github/workflows/tests.yml` führt die Tests bei jedem Push und Pull Request
+unter Linux aus (Python 3.9, 3.12, 3.14). Tests als `xfail(strict=True)` dokumentieren bekannte
+Auffälligkeiten; wird eine behoben, schlägt der Test an und das `xfail` kann entfernt werden.

@@ -1,0 +1,3 @@
+# Nur für die Tests nötig – die Programme selbst brauchen nur die Standardbibliothek.
+pytest
+pytest-cov

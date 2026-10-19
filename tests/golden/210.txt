@@ -1,0 +1,33 @@
+Netto
+Marken-Discount
+01127 Dresden, Bürgerstraße 62
+WWW.NETTO-ONLINE.DE
+Petre.vegan Schnittl.125g | EUR | 1,49 B
+SurfChips Original 160g |  | 1,39 B
+KM Knaecker. Roggen 250g |  | 1,29 B
+BO Steinofenbaguette 400g |  | 1,29 B
+Nektarinen weißfl. 600g |  | 2,49 B
+Gurken |  | 0,89 B
+SUMME [6] |  | 8,84
+SUMME
+Kartenzahlung EUR
+8,84
+8,84
+K-U-N-D-E-N-B-E-L-E-G--
+Terminal-ID : 65225347
+TA-Nr 824070 BNr 4558
+Kartenzahlung
+kontaktlos
+Visa Debit
+EUR 8,84
+PAN ************7261
+Karte 0
+EMV-AID A0000000031010
+VU-Nr 4556410559
+Genehmigungs-Nr 825584
+Datum 28.08.26 15:49 Uhr
+** Zahlung erfolgt **
+AS-Proc-Code = 00 075 00
+Capt.-Ref.= 0000
+APPROVED
+MWST BRUTTO NETTO
