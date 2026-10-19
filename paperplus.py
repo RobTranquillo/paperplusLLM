@@ -19,7 +19,7 @@ bei gesetztem Tag, wurde der Text vermutlich durch eine neue Tesseract-OCR über
 Beispiele:
   python3 paperplus.py                 # alle ausstehenden Dokumente (siehe oben)
   python3 paperplus.py --auto          # dasselbe für den Zeitplan: Netzteil-Check, Mitteilung
-  python3 paperplus.py --latest 3      # die drei neuesten
+  python3 paperplus.py --latest 3      # die drei neuesten ausstehenden
   python3 paperplus.py 1234 1240       # bestimmte IDs
   python3 paperplus.py --no-write 1234 # nur lokal, Paperless nicht verändern
 """
@@ -85,10 +85,6 @@ class Paperless:
             nxt = res.get("next")
             path = (urllib.parse.urlsplit(nxt).path + "?" + urllib.parse.urlsplit(nxt).query) if nxt else None
         return results
-
-    def latest_ids(self, n):
-        res = self.request(f"/api/documents/?ordering=-added&page_size={n}&fields=id")
-        return [d["id"] for d in res["results"]]
 
     def document(self, doc_id):
         return self.request(f"/api/documents/{doc_id}/")
@@ -170,7 +166,7 @@ def main():
 
     ap = argparse.ArgumentParser(description="Paperless-Dokumente mit dem eingestellten LLM anreichern.")
     ap.add_argument("ids", nargs="*", type=int, help="Paperless-Dokument-IDs (sonst alle ausstehenden, siehe ADR 0004)")
-    ap.add_argument("--latest", type=int, help="statt der ausstehenden die N neuesten Dokumente")
+    ap.add_argument("--latest", type=int, help="nur die N neuesten der ausstehenden Dokumente")
     ap.add_argument("--auto", action="store_true", help="für den Zeitplan: nur am Netzteil, still ohne Paperless, Mitteilung am Ende")
     ap.add_argument("--out", default=os.environ.get("PAPERPLUS_OUT", str(llm.PROJECT_DIR / "ausgabe")), help="lokaler Ausgabeordner")
     ap.add_argument("--skip-llm", action="store_true", help="nur Dokumente aus Paperless laden, LM Studio/Modell überspringen")
@@ -200,11 +196,12 @@ def main():
 
     if args.ids:
         ids = args.ids
-    elif args.latest:
-        ids = pl.latest_ids(args.latest)
     else:
         ids = pending_ids(pl, marker_tag, queue_tag)
         print(f"{len(ids)} Dokument(e) ausstehend")
+        if args.latest:
+            ids = ids[:args.latest]
+            print(f"davon die {len(ids)} neuesten: {', '.join(f'#{i}' for i in ids)}")
     if not ids:
         print("Nichts zu tun.")
         sys.exit(0)

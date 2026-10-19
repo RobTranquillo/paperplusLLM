@@ -36,7 +36,7 @@ PDFs ohne `llm-ausstehend` sowie Text/CSV werden nicht automatisch verarbeitet.
 ```bash
 ./run.sh                      # alle ausstehenden Dokumente
 ./run.sh 1234 1240            # bestimmte IDs
-./run.sh --latest 3           # die drei neuesten
+./run.sh --latest 3           # die drei neuesten ausstehenden
 ./run.sh --no-write 1234      # nur lokal, Paperless nicht verändern
 ./run.sh --force 1234         # bereits angereicherte Dokumente erneut verarbeiten
 ./run.sh --skip-llm 1234      # nur aus Paperless laden, ohne LLM

@@ -46,7 +46,7 @@ einzeln: Original nach `ausgabe/<doc-id>_<titel>/` → LM Studio (erst bei Bedar
 Tag `llm-angereichert` gesetzt, `llm-ausstehend` entfernt** (ADR 0002). Tags werden vor dem
 Schreiben frisch gelesen. Keine lokale Sicherung von `content` (Paperless-Änderungsverlauf).
 Das LLM bekommt nur das Bild, nicht den Tesseract-Text (bewusst entfernt, unbrauchbar).
-Optionen: IDs, `--latest N`, `--auto`, `--no-write`, `--force`, `--skip-llm`, `--keep-loaded`.
+Optionen: IDs, `--latest N` (die N neuesten der ausstehenden), `--auto`, `--no-write`, `--force`, `--skip-llm`, `--keep-loaded`.
 **Zeitplan:** `install-launchd.sh` → LaunchAgent `local.paperplusllm`, alle 6 h + beim Anmelden,
 `run.sh --auto` (Netzteil-Check, still ohne Paperless, macOS-Mitteilung,
 Log `~/Library/Logs/paperplusLLM.log`). Zurückschreiben getestet (Dok. 220).
