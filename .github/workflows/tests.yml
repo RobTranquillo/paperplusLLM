@@ -7,11 +7,11 @@ on:
 
 jobs:
   pytest:
-    runs-on: ubuntu-24.04  # fest, damit Python 3.9 verfügbar bleibt (ubuntu-latest wechselt auf 26.04)
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.12", "3.14"]
+        python-version: ["3.11", "3.13", "3.15"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7

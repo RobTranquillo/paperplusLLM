@@ -20,7 +20,7 @@ Architekturentscheidungen: [`docs/adr/`](docs/adr/)
 
 ## Voraussetzungen
 
-- Python 3.9+ (nur Standardbibliothek), macOS (`sips`, `qlmanage`)
+- Python 3.11+ (nur Standardbibliothek), macOS (`sips`, `qlmanage`)
 - Paperless-ngx mit API-Token (Schreibrechte für Dokumente und Tags)
 - LM Studio mit einem Vision-Modell (`lms get <modell>`), aktuell `chandra-ocr-2`
 - optional `brew install poppler` für mehrseitige PDFs (sonst nur Seite 1)
@@ -119,4 +119,4 @@ UPDATE_GOLDEN=1 pytest -k snapshot    # Textvergleichsdateien in tests/golden/ n
 ```
 
 Die GitHub Action `.github/workflows/tests.yml` führt die Tests bei jedem Push und Pull Request
-unter Linux aus (Python 3.9, 3.12, 3.14).
+unter Linux aus (Python 3.11, 3.13, 3.15).
