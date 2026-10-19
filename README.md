@@ -1,13 +1,20 @@
 # paperplusLLM
 
-Holt einzelne Dokumente von Paperless-ngx, lässt den Inhalt der Fotos/Scans von LLMs
-extrahieren und legt pro LLM eine Ergebnisdatei neben das Dokument. Paperless wird nur gelesen.
+Lässt Dokumente aus Paperless-ngx von einem lokalen Vision-LLM (LM Studio) lesen, um die
+schwache Tesseract-Texterkennung zu ersetzen. Zwei unabhängige Teile, gemeinsamer Code in `llm.py`:
+
+| Teil | Zweck |
+|---|---|
+| `paperplus.py` (`run.sh`) | **Anreichern:** Dokumente aus Paperless mit dem eingestellten LLM lesen, Text in Paperless ersetzen |
+| `evaluate.py` | **Benchmarken:** ein LLM anhand der Referenzdokumente in `referenz/` bewerten |
+
+Architekturentscheidungen: [`docs/adr/`](docs/adr/)
 
 ## Voraussetzungen
 
 - Python 3.9+ (nur Standardbibliothek), macOS (`sips`, `qlmanage`)
-- Paperless-ngx mit API-Token
-- LM Studio mit einem Vision-Modell (`lms get <modell>`)
+- Paperless-ngx mit API-Token (Schreibrechte für Dokumente und Tags)
+- LM Studio mit einem Vision-Modell (`lms get <modell>`), aktuell `chandra-ocr-2`
 - optional `brew install poppler` für mehrseitige PDFs (sonst nur Seite 1)
 
 ## Einrichtung
@@ -16,40 +23,55 @@ extrahieren und legt pro LLM eine Ergebnisdatei neben das Dokument. Paperless wi
 cp .env.example .env   # PAPERLESS_TOKEN und LMSTUDIO_MODEL eintragen
 ```
 
-## Aufruf
+## Anreichern – `paperplus.py`
 
 ```bash
 ./run.sh                      # neuestes Dokument
 ./run.sh --latest 3           # die drei neuesten
 ./run.sh 1234 1240            # bestimmte IDs
+./run.sh --no-write 1234      # nur lokal, Paperless nicht verändern
+./run.sh --force 1234         # bereits angereicherte Dokumente erneut verarbeiten
 ./run.sh --skip-llm 1234      # nur aus Paperless laden, ohne LLM
-./run.sh --model qwen/qwen3-vl-8b --with-ocr 1234
 ```
 
 Weitere Optionen: `./run.sh --help`
 
-## Ausgabe
+In Paperless:
+
+- Feld **`content`** wird durch den reinen Text der LLM-Antwort ersetzt (Zeilen und
+  Tabellenzeilen als Zeilenumbrüche, Zellen durch ` | ` getrennt). Letzte Zeile:
+  `llm-angereichert (<modell>)`.
+- Tag **`llm-angereichert`** wird gesetzt; solche Dokumente werden beim nächsten Lauf übersprungen.
+- Frühere Fassungen von `content` stehen im Änderungsverlauf von Paperless.
+- Tag vorhanden, aber Markierung fehlt im Text ⇒ `content` wurde vermutlich durch eine neue
+  Tesseract-OCR überschrieben.
+
+Lokal:
 
 ```
 ausgabe/<doc-id>_<titel>/
 ├── original.<ext>
-├── paperless_content.txt        # vorhandener Paperless-Text (Feld "content")
-├── <modell>.html                # Antwort des LLMs (HTML mit Struktur)
-└── <modell>_mit-ocr.html        # mit --with-ocr
+└── <modell>.html                # Antwort des LLMs (HTML mit Struktur)
 ```
 
-## Referenzen und Bewertung
-
-Korrigierte Fassungen dienen als Ground Truth (nicht im Git, enthalten persönliche Daten):
+## Benchmarken – `evaluate.py`
 
 ```
 referenz/<doc-id>_<titel>/
 ├── original.<ext>
-└── ground_truth.html
+├── ground_truth.html            # vom Menschen korrigierte Fassung
+└── tesseract.txt                # optional, Basislinie
 ```
 
-Nach jedem Lauf werden die Ergebnisse automatisch gegen vorhandene Referenzen bewertet,
-manuell mit `python3 evaluate.py [ids]`. Ergebnis zusätzlich in `ausgabe/bewertung.csv`.
+```bash
+python3 evaluate.py                   # eingestelltes Modell auf alle Referenzen
+python3 evaluate.py 220 210           # bestimmte IDs
+python3 evaluate.py --model <key>     # anderes Modell
+python3 evaluate.py --score-only      # nur vorhandene Antworten neu bewerten
+```
+
+Antworten in `benchmark/<doc-id>_<titel>/<modell>.html`, Werte in Konsole und
+`benchmark/bewertung.csv`. Antworten mehrerer Modelle werden nebeneinander bewertet.
 
 | Metrik | Bedeutung |
 |---|---|
@@ -58,4 +80,3 @@ manuell mit `python3 evaluate.py [ids]`. Ergebnis zusätzlich in `ausgabe/bewert
 | Struktur | Ähnlichkeit der HTML-Struktur (Überschriften, Absätze, Tabellen, Listen) |
 
 Verglichen wird der aus dem HTML extrahierte Text; Bildbeschreibungen (`alt`) zählen nicht mit.
-Der Tesseract-Text aus Paperless wird als Vergleichsbasis mitbewertet.
