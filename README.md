@@ -25,10 +25,18 @@ cp .env.example .env   # PAPERLESS_TOKEN und LMSTUDIO_MODEL eintragen
 
 ## Anreichern – `paperplus.py`
 
+Ohne Angabe von IDs werden alle **ausstehenden** Dokumente verarbeitet (ADR 0004):
+
+- **Fotos** (`image/*`) ohne Tag `llm-angereichert`
+- **alle Dokumente mit Tag `llm-ausstehend`** – z. B. als PDF abgelegte Fotos; auch bereits
+  angereicherte Dokumente lassen sich so erneut anfordern
+
+PDFs ohne `llm-ausstehend` sowie Text/CSV werden nicht automatisch verarbeitet.
+
 ```bash
-./run.sh                      # neuestes Dokument
-./run.sh --latest 3           # die drei neuesten
+./run.sh                      # alle ausstehenden Dokumente
 ./run.sh 1234 1240            # bestimmte IDs
+./run.sh --latest 3           # die drei neuesten
 ./run.sh --no-write 1234      # nur lokal, Paperless nicht verändern
 ./run.sh --force 1234         # bereits angereicherte Dokumente erneut verarbeiten
 ./run.sh --skip-llm 1234      # nur aus Paperless laden, ohne LLM
@@ -36,12 +44,24 @@ cp .env.example .env   # PAPERLESS_TOKEN und LMSTUDIO_MODEL eintragen
 
 Weitere Optionen: `./run.sh --help`
 
+### Regelmäßiger Lauf (launchd)
+
+```bash
+./install-launchd.sh              # alle 6 h und beim Anmelden: run.sh --auto
+./install-launchd.sh --uninstall  # entfernen
+tail -f ~/Library/Logs/paperplusLLM.log
+```
+
+`--auto`: nur am Netzteil, beendet sich still, wenn Paperless nicht erreichbar ist, und zeigt am
+Ende eine macOS-Mitteilung. LM Studio wird nur gestartet, wenn es etwas zu tun gibt.
+
 In Paperless:
 
 - Feld **`content`** wird durch den reinen Text der LLM-Antwort ersetzt (Zeilen und
   Tabellenzeilen als Zeilenumbrüche, Zellen durch ` | ` getrennt). Letzte Zeile:
   `llm-angereichert (<modell>)`.
-- Tag **`llm-angereichert`** wird gesetzt; solche Dokumente werden beim nächsten Lauf übersprungen.
+- Tag **`llm-angereichert`** wird gesetzt, **`llm-ausstehend`** entfernt; angereicherte Dokumente
+  werden beim nächsten Lauf übersprungen.
 - Frühere Fassungen von `content` stehen im Änderungsverlauf von Paperless.
 - Tag vorhanden, aber Markierung fehlt im Text ⇒ `content` wurde vermutlich durch eine neue
   Tesseract-OCR überschrieben.

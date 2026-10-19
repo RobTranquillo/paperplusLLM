@@ -2,19 +2,23 @@
 """paperplusLLM – Anreichern: Paperless-Dokumente mit dem eingestellten LLM lesen und den
 erkannten Text in Paperless hinterlegen.
 
-Ablauf:
+Auswahl ohne IDs (ADR 0004): alle Fotos (image/*) ohne Tag „llm-angereichert“
+und alle Dokumente mit Tag „llm-ausstehend“ (z. B. als PDF abgelegte Fotos).
+
+Ablauf pro Dokument (einzeln, ein Abbruch verliert nichts):
   1. Verbindung zu Paperless prüfen, sonst Abbruch
   2. Originaldatei lokal ablegen (Eingabe für das LLM)
-  3. LM Studio-Server starten und das eingestellte Modell laden
+  3. LM Studio-Server starten und das eingestellte Modell laden (nur wenn es etwas zu tun gibt)
   4. Dokument an das Modell geben, HTML-Antwort lokal speichern
-  5. Reinen Text aus dem HTML + Markierung ins Feld "content" schreiben, Tag setzen
+  5. Reinen Text aus dem HTML + Markierung ins Feld "content" schreiben,
+     Tag „llm-angereichert“ setzen, „llm-ausstehend“ entfernen
 
 Die Markierung (MARKER) steht sowohl im Text als auch als Tag am Dokument. Fehlt sie im Text
-bei gesetztem Tag, wurde der Text vermutlich durch eine neue Tesseract-OCR überschrieben:
-  Suche in Paperless:  tag:llm-angereichert -content:llm-angereichert   (siehe README)
+bei gesetztem Tag, wurde der Text vermutlich durch eine neue Tesseract-OCR überschrieben.
 
 Beispiele:
-  python3 paperplus.py                 # neuestes Dokument
+  python3 paperplus.py                 # alle ausstehenden Dokumente (siehe oben)
+  python3 paperplus.py --auto          # dasselbe für den Zeitplan: Netzteil-Check, Mitteilung
   python3 paperplus.py --latest 3      # die drei neuesten
   python3 paperplus.py 1234 1240       # bestimmte IDs
   python3 paperplus.py --no-write 1234 # nur lokal, Paperless nicht verändern
@@ -22,7 +26,9 @@ Beispiele:
 import argparse
 import json
 import os
+import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -33,6 +39,8 @@ from llm import die
 
 DEFAULT_PAPERLESS_URL = "http://bfds:30070"
 MARKER = "llm-angereichert"
+QUEUE_TAG = "llm-ausstehend"
+IMAGE_MIME_PREFIX = "image/"
 
 
 # ---------------------------------------------------------------- Paperless
@@ -53,8 +61,8 @@ class Paperless:
             payload = r.read()
         return payload if raw else (json.loads(payload) if payload else None)
 
-    def check_connection(self):
-        """Erreichbarkeit und Token prüfen."""
+    def check_connection(self, quiet_if_offline=False):
+        """Erreichbarkeit und Token prüfen. quiet_if_offline: unterwegs still beenden (Zeitplan)."""
         try:
             self.request("/api/documents/?page_size=1", timeout=10)
         except urllib.error.HTTPError as e:
@@ -62,8 +70,21 @@ class Paperless:
                 die(f"Paperless erreichbar, aber Token ungültig oder ohne Rechte (HTTP {e.code}).")
             die(f"Paperless antwortet mit HTTP {e.code}.")
         except (urllib.error.URLError, OSError) as e:
+            if quiet_if_offline:
+                print(f"Paperless unter {self.url} nicht erreichbar – nichts zu tun.")
+                sys.exit(0)
             die(f"Paperless unter {self.url} nicht erreichbar: {getattr(e, 'reason', e)}")
         print(f"✓ Paperless erreichbar: {self.url}")
+
+    def list_all(self, path):
+        """Alle Seiten einer Listenabfrage einsammeln."""
+        results = []
+        while path:
+            res = self.request(path)
+            results += res["results"]
+            nxt = res.get("next")
+            path = (urllib.parse.urlsplit(nxt).path + "?" + urllib.parse.urlsplit(nxt).query) if nxt else None
+        return results
 
     def latest_ids(self, n):
         res = self.request(f"/api/documents/?ordering=-added&page_size={n}&fields=id")
@@ -115,6 +136,28 @@ def store_document(pl, doc_id, out_root):
     return folder, original, doc
 
 
+def pending_ids(pl, marker_tag, queue_tag):
+    """Auswahl laut ADR 0004: Fotos ohne Marker-Tag + alles mit Warteschlangen-Tag. Neueste zuerst."""
+    query = f"/api/documents/?page_size=100&fields=id,mime_type"
+    if marker_tag:
+        query += f"&tags__id__none={marker_tag}"
+    ids = {d["id"] for d in pl.list_all(query) if (d.get("mime_type") or "").startswith(IMAGE_MIME_PREFIX)}
+    if queue_tag:
+        ids |= {d["id"] for d in pl.list_all(f"/api/documents/?page_size=100&fields=id&tags__id__all={queue_tag}")}
+    return sorted(ids, reverse=True)
+
+
+def on_ac_power():
+    out = subprocess.run(["pmset", "-g", "batt"], capture_output=True, text=True).stdout
+    return "AC Power" in out or "Battery Power" not in out
+
+
+def notify(message):
+    """macOS-Mitteilung (Fehler werden ignoriert, z. B. ohne grafische Sitzung)."""
+    script = f'display notification {json.dumps(message)} with title "paperplusLLM"'
+    subprocess.run(["osascript", "-e", script], capture_output=True)
+
+
 def build_content(text, model):
     """Text für das Paperless-Feld content: LLM-Text + Markierungszeile am Ende."""
     return f"{text}\n\n{MARKER} ({model})"
@@ -126,8 +169,9 @@ def main():
     llm.load_dotenv()
 
     ap = argparse.ArgumentParser(description="Paperless-Dokumente mit dem eingestellten LLM anreichern.")
-    ap.add_argument("ids", nargs="*", type=int, help="Paperless-Dokument-IDs (sonst die neuesten)")
-    ap.add_argument("--latest", type=int, default=1, help="Anzahl neuester Dokumente, wenn keine IDs angegeben (Standard: 1)")
+    ap.add_argument("ids", nargs="*", type=int, help="Paperless-Dokument-IDs (sonst alle ausstehenden, siehe ADR 0004)")
+    ap.add_argument("--latest", type=int, help="statt der ausstehenden die N neuesten Dokumente")
+    ap.add_argument("--auto", action="store_true", help="für den Zeitplan: nur am Netzteil, still ohne Paperless, Mitteilung am Ende")
     ap.add_argument("--out", default=os.environ.get("PAPERPLUS_OUT", str(llm.PROJECT_DIR / "ausgabe")), help="lokaler Ausgabeordner")
     ap.add_argument("--skip-llm", action="store_true", help="nur Dokumente aus Paperless laden, LM Studio/Modell überspringen")
     ap.add_argument("--no-write", action="store_true", help="Ergebnis nur lokal ablegen, Paperless nicht verändern")
@@ -135,76 +179,94 @@ def main():
     llm.add_llm_arguments(ap)
     args = ap.parse_args()
 
+    if args.auto:
+        print(f"=== {time.strftime('%Y-%m-%d %H:%M:%S')} ===")
+        if not on_ac_power():
+            print("Mac läuft auf Akku – übersprungen.")
+            sys.exit(0)
     if not args.model and not args.skip_llm:
         die("Kein Modell angegeben (--model oder LMSTUDIO_MODEL).")
     token = os.environ.get("PAPERLESS_TOKEN")
     if not token:
         die("PAPERLESS_TOKEN fehlt (in .env oder als Umgebungsvariable setzen).")
 
-    # 1) Verbindung prüfen
+    # 1) Verbindung prüfen, Dokumente auswählen
     pl = Paperless(os.environ.get("PAPERLESS_URL", DEFAULT_PAPERLESS_URL), token)
-    pl.check_connection()
-
-    ids = args.ids or pl.latest_ids(args.latest)
-    if not ids:
-        die("Keine Dokumente gefunden.")
+    pl.check_connection(quiet_if_offline=args.auto)
 
     write = not (args.no_write or args.skip_llm)
     marker_tag = pl.tag_id(MARKER, create=write)
+    queue_tag = pl.tag_id(QUEUE_TAG)
 
-    # 2) Dokumente + vorhandenen Text lokal ablegen
-    out_root = Path(args.out).expanduser().resolve()
-    docs = []
-    for doc_id in ids:
-        try:
-            folder, original, doc = llm_input = store_document(pl, doc_id, out_root)
-        except Exception as e:
-            print(f"✗ #{doc_id}: {e}", file=sys.stderr)
-            continue
-        if marker_tag in doc.get("tags", []) and not args.force and not args.skip_llm:
-            print(f"  #{doc_id} hat bereits den Tag „{MARKER}“ – übersprungen (--force zum Erzwingen)")
-            continue
-        docs.append(llm_input)
-
-    if args.skip_llm:
-        print("LLM-Schritte übersprungen (--skip-llm).")
-        sys.exit(0)
-    if not docs:
+    if args.ids:
+        ids = args.ids
+    elif args.latest:
+        ids = pl.latest_ids(args.latest)
+    else:
+        ids = pending_ids(pl, marker_tag, queue_tag)
+        print(f"{len(ids)} Dokument(e) ausstehend")
+    if not ids:
         print("Nichts zu tun.")
         sys.exit(0)
 
-    # 3) LM Studio starten und Modell laden
-    lm = llm.LMStudio()
-    lm.start_server()
-    model_id = lm.load_model(args.model, args.context_length)
-
-    # 4) + 5) Dokumente an das Modell geben, lokal speichern, nach Paperless schreiben
-    errors = 0
-    try:
-        for folder, original, doc in docs:
+    out_root = Path(args.out).expanduser().resolve()
+    if args.skip_llm:
+        for doc_id in ids:
             try:
-                print(f"… #{doc['id']}: an {model_id}")
+                store_document(pl, doc_id, out_root)
+            except Exception as e:
+                print(f"✗ #{doc_id}: {e}", file=sys.stderr)
+        print("LLM-Schritte übersprungen (--skip-llm).")
+        sys.exit(0)
+
+    lm = None
+    done, errors = 0, 0
+    try:
+        for n, doc_id in enumerate(ids, 1):
+            try:
+                # 2) Original holen; Dokumente mit Marker überspringen, außer sie stehen in der Warteschlange
+                folder, original, doc = store_document(pl, doc_id, out_root)
+                tags = set(doc.get("tags", []))
+                if marker_tag in tags and queue_tag not in tags and not args.force:
+                    print(f"  #{doc_id} hat bereits den Tag „{MARKER}“ – übersprungen (--force zum Erzwingen)")
+                    continue
+
+                # 3) LM Studio erst starten, wenn es wirklich etwas zu tun gibt
+                if lm is None:
+                    lm = llm.LMStudio()
+                    lm.start_server()
+                    model_id = lm.load_model(args.model, args.context_length)
+
+                # 4) Modell lesen lassen, HTML lokal speichern
+                print(f"… [{n}/{len(ids)}] #{doc_id}: an {model_id}")
                 html, usage, seconds, n_images = lm.transcribe_file(
                     model_id, original, llm.PROMPT, args.max_size, args.max_pages, args.timeout)
                 target = folder / llm.model_filename(args.model)
                 target.write_text(html + "\n", encoding="utf-8")
-                print(f"✓ #{doc['id']}: {target.name} ({n_images} Bild(er), {seconds:.0f} s, "
+                print(f"✓ #{doc_id}: {target.name} ({n_images} Bild(er), {seconds:.0f} s, "
                       f"{usage.get('completion_tokens', '?')} Tokens)")
 
                 text = llm.html_to_text(html)
                 if not text:
                     raise RuntimeError("LLM hat keinen Text geliefert – Paperless bleibt unverändert")
+
+                # 5) Nach Paperless schreiben; Tags frisch lesen, um zwischenzeitliche Änderungen nicht zu überschreiben
                 if write:
-                    tags = sorted(set(doc.get("tags", [])) | {marker_tag})
-                    pl.update(doc["id"], {"content": build_content(text, args.model), "tags": tags})
-                    print(f"✓ #{doc['id']}: Inhalt in Paperless ersetzt ({len(text)} Zeichen), Tag „{MARKER}“ gesetzt")
+                    tags = set(pl.document(doc_id).get("tags", []))
+                    tags = (tags | {marker_tag}) - {queue_tag}
+                    pl.update(doc_id, {"content": build_content(text, args.model), "tags": sorted(tags)})
+                    print(f"✓ #{doc_id}: Inhalt in Paperless ersetzt ({len(text)} Zeichen), Tag „{MARKER}“ gesetzt")
+                done += 1
             except Exception as e:
                 errors += 1
-                print(f"✗ #{doc['id']}: {e}", file=sys.stderr)
+                print(f"✗ #{doc_id}: {e}", file=sys.stderr)
     finally:
-        if not args.keep_loaded:
+        if lm and not args.keep_loaded:
             lm.unload()
 
+    print(f"Fertig: {done} angereichert, {errors} Fehler.")
+    if args.auto and (done or errors):
+        notify(f"{done} Dokument(e) angereichert" + (f", {errors} Fehler" if errors else ""))
     sys.exit(1 if errors else 0)
 
 

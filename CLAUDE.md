@@ -22,7 +22,7 @@ die Dokumente von einem lokalen Vision-LLM lesen und reichert Paperless mit dem 
 
 ## Architektur: zwei unabhängige Teile
 
-Siehe `docs/adr/0001-zwei-unabhaengige-teile.md`, `0002-content-feld-und-markierung.md`, `0003-gemeinsames-modul-llm.md`.
+Siehe `docs/adr/0001-zwei-unabhaengige-teile.md`, `0002-content-feld-und-markierung.md`, `0003-gemeinsames-modul-llm.md`, `0004-auswahl-und-zeitplan.md`.
 
 | Teil | Zweck | Arbeitet mit |
 |---|---|---|
@@ -39,14 +39,17 @@ Gemeinsamer Code (LM Studio, Bildaufbereitung, Prompt, HTML→Text, `.env`) lieg
 
 ### Stand `paperplus.py`
 
-Verbindungsprüfung → Original nach `ausgabe/<doc-id>_<titel>/` →
-LM Studio starten, Modell laden → Bild(er) an das Modell → `<modell>.html` lokal →
-**reiner Text + Zeile `llm-angereichert (<modell>)` ersetzt `content` in Paperless, Tag
-`llm-angereichert` wird gesetzt** (ADR 0002). Dokumente mit dem Tag werden übersprungen.
-Optionen: IDs oder `--latest N`, `--no-write`, `--force`, `--skip-llm`, `--keep-loaded`.
+**Auswahl ohne IDs (ADR 0004):** Fotos (`image/*`) ohne Tag `llm-angereichert` **oder** Dokumente
+mit Tag `llm-ausstehend` (auch PDFs, auch bereits angereicherte). Neueste zuerst, jedes Dokument
+einzeln: Original nach `ausgabe/<doc-id>_<titel>/` → LM Studio (erst bei Bedarf gestartet) →
+`<modell>.html` lokal → **reiner Text + Zeile `llm-angereichert (<modell>)` ersetzt `content`,
+Tag `llm-angereichert` gesetzt, `llm-ausstehend` entfernt** (ADR 0002). Tags werden vor dem
+Schreiben frisch gelesen. Keine lokale Sicherung von `content` (Paperless-Änderungsverlauf).
 Das LLM bekommt nur das Bild, nicht den Tesseract-Text (bewusst entfernt, unbrauchbar).
-Keine lokale Sicherung von `content` – Paperless speichert Änderungen selbst im
-Änderungsverlauf. Start über `run.sh`. Zurückschreiben ist implementiert, aber noch nicht gegen Paperless getestet.
+Optionen: IDs, `--latest N`, `--auto`, `--no-write`, `--force`, `--skip-llm`, `--keep-loaded`.
+**Zeitplan:** `install-launchd.sh` → LaunchAgent `local.paperplusllm`, alle 6 h + beim Anmelden,
+`run.sh --auto` (Netzteil-Check, still ohne Paperless, macOS-Mitteilung,
+Log `~/Library/Logs/paperplusLLM.log`). Zurückschreiben getestet (Dok. 220).
 
 ### Stand `evaluate.py`
 
@@ -94,5 +97,6 @@ Ergebnis in Konsole und `benchmark/bewertung.csv`. `--score-only` bewertet nur v
 
 - HTML zusätzlich in Paperless ablegen (z. B. `longtext`-Custom-Field)?
 - Suchausdruck für „degradierte“ Dokumente (Tag ohne Markierung im Text) an Paperless prüfen.
-- Wie Dokumente künftig ausgewählt werden (IDs/`--latest`, Tag, Paperless-Workflow?).
+- Fehler-Tag für dauerhaft fehlschlagende Dokumente (derzeit erneuter Versuch bei jedem Lauf).
+- Digital erzeugte PDFs automatisch erkennen statt nur über `llm-ausstehend`.
 - Ob Laufzeit/Tokens pro Modell im Benchmark mitprotokolliert werden.
