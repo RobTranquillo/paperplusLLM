@@ -1,4 +1,12 @@
-# paperplusLLM
+[![Tests](https://github.com/RobTranquillo/paperplusLLM/actions/workflows/tests.yml/badge.svg)](https://github.com/RobTranquillo/paperplusLLM/actions/workflows/tests.yml)
+
+<p align="center">
+  <picture>
+    <img src="https://github.com/RobTranquillo/paperplusLLM/blob/main/docs/assets/logo_full_black.png" width="50%">
+  </picture>
+</p>
+
+# Paperplus-LLM
 
 Lässt Dokumente aus Paperless-ngx von einem lokalen Vision-LLM (LM Studio) lesen, um die
 schwache Tesseract-Texterkennung zu ersetzen. Zwei unabhängige Teile, gemeinsamer Code in `llm.py`:
