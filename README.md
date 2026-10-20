@@ -8,10 +8,10 @@
 
 # Paperplus-LLM
 
-Lässt Dokumente aus Paperless-ngx von einem lokalen Vision-LLM (LM Studio) lesen, um die
-schwache Tesseract-Texterkennung zu ersetzen. Zwei unabhängige Teile, gemeinsamer Code in `llm.py`:
+Dokumente aus Paperless-ngx von einem lokalen Vision-LLM (LM Studio) lesen, um die
+schwache Tesseract-Texterkennung zu ersetzen.
 
-| Teil | Zweck |
+| Teile | Zweck |
 |---|---|
 | `paperplus.py` (`run.sh`) | **Anreichern:** Dokumente aus Paperless mit dem eingestellten LLM lesen, Text in Paperless ersetzen |
 | `evaluate.py` | **Benchmarken:** ein LLM anhand der Referenzdokumente in `referenz/` bewerten |
@@ -22,8 +22,14 @@ Architekturentscheidungen: [`docs/adr/`](docs/adr/)
 
 - Python 3.11+ (nur Standardbibliothek), macOS (`sips`, `qlmanage`)
 - Paperless-ngx mit API-Token (Schreibrechte für Dokumente und Tags)
-- LM Studio mit einem Vision-Modell (`lms get <modell>`), aktuell `chandra-ocr-2`
+- LM Studio mit einem Vision-Modell (`lms get <modell>`)
 - optional `brew install poppler` für mehrseitige PDFs (sonst nur Seite 1)
+
+### LLM für Texterkennung ermitteln
+
+Empfehlung: `chandra-ocr-2`. Es hat eine sehr große Menge Zeichen korrekt erkannt. Bei langen Buchstabenketten wie Prüfsummen unter Kassenzetteln kommt es zu Buchstabendrehern und Groß-/Kleinschreibungsfehlern.
+
+Um eigene LLMs zu testen, kann `evaluate.py` verwendet werden (mehr dazu weiter unten). Einige Bildbeispiele sind bereits enthalten, die selbst mit der Empfehlung `chandra-ocr-2` nicht zu 100 % korrekt erkannt werden. Zur Evaluation empfiehlt es sich, eigene Dokumente zu hinterlegen.
 
 ## Einrichtung
 
